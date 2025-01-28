@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXTextArea?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane fx:id="root" prefHeight="700.0" prefWidth="600.0" style="-fx-background-color: #070707;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="lk.ijse.multiclientchatapp.controller.ServerFormController">
+   <children>
+      <Label layoutX="40.0" layoutY="44.0" text="Server" textFill="WHITE">
+         <font>
+            <Font name="System Bold" size="30.0" />
+         </font>
+      </Label>
+      <JFXTextArea fx:id="chatArea" layoutX="35.0" layoutY="114.0" prefHeight="381.0" prefWidth="531.0" style="-fx-background-color: #999999;" />
+      <TextField fx:id="txtInput" layoutX="107.0" layoutY="600.0" prefHeight="24.0" prefWidth="387.0" />
+      <JFXButton fx:id="btnSend" layoutX="497.0" layoutY="600.0" onAction="#btnSendOnAction" prefHeight="24.0" prefWidth="69.0" style="-fx-background-color: #85b112;" text="Send" />
+      <JFXButton layoutX="35.0" layoutY="600.0" onAction="#btnEmojiOnAction" prefHeight="24.0" prefWidth="60.0" style="-fx-background-color: white;" text="Emoji" />
+      <ImageView fx:id="imageView" layoutX="35.0" layoutY="500.0" fitHeight="100.0" fitWidth="100.0"/>
+   </children>
+</AnchorPane>
