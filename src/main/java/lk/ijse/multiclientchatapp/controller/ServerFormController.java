@@ -16,6 +16,8 @@ import lk.ijse.multiclientchatapp.EmojiPicker;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ServerFormController extends Application {
     public AnchorPane root;
@@ -25,46 +27,27 @@ public class ServerFormController extends Application {
     public ImageView imageView; // To display received image
 
     private ServerSocket serverSocket;
-    private Socket socket;
-    private DataOutputStream dataOutputStream;
-    private DataInputStream dataInputStream;
+    private List<Socket> clientSockets = new ArrayList<>();
+    private List<DataOutputStream> clientOutputStreams = new ArrayList<>();
     private Thread listenerThread;
 
     public void initialize() {
         try {
             serverSocket = new ServerSocket(4000);
-            socket = serverSocket.accept();
-            System.out.println("Client accepted");
+            System.out.println("Server started, waiting for clients...");
 
-            dataOutputStream = new DataOutputStream(socket.getOutputStream());
-            dataInputStream = new DataInputStream(socket.getInputStream());
+            // Accept two clients
+            for (int i = 0; i < 2; i++) {
+                Socket socket = serverSocket.accept();
+                clientSockets.add(socket);
+                System.out.println("Client " + (i + 1) + " accepted");
 
-            listenerThread = new Thread(() -> {
-                try {
-                    String response;
-                    while (true) {
-                        // Check for message type (text or image)
-                        response = dataInputStream.readUTF();
-                        if (response.equals("TEXT")) {
-                            String textMessage = dataInputStream.readUTF();
-                            chatArea.appendText("Client: " + textMessage + "\n");
-                        } else if (response.equals("IMAGE")) {
-                            int imageLength = dataInputStream.readInt();
-                            byte[] imageBytes = new byte[imageLength];
-                            dataInputStream.readFully(imageBytes);
+                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+                clientOutputStreams.add(dataOutputStream);
 
-                            // Convert byte array to image and display
-                            InputStream byteArrayInputStream = new ByteArrayInputStream(imageBytes);
-                            Image image = new Image(byteArrayInputStream);
-                            imageView.setImage(image);  // Display image on the server side
-                            chatArea.appendText("Client sent an image.\n");
-                        }
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-            listenerThread.start();
+                // Start a new thread for each client
+                new Thread(() -> listenToClient(socket)).start();
+            }
 
             txtInput.textProperty().addListener((observable, oldValue, newValue) -> {
                 btnSend.setDisable(newValue.trim().isEmpty());
@@ -75,18 +58,70 @@ public class ServerFormController extends Application {
         }
     }
 
+    private void listenToClient(Socket socket) {
+        try {
+            DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+            String response;
+            while (true) {
+                // Check for message type (text or image)
+                response = dataInputStream.readUTF();
+                if (response.equals("TEXT")) {
+                    String textMessage = dataInputStream.readUTF();
+                    chatArea.appendText("Client: " + textMessage + "\n");
+                    broadcastMessage("TEXT", textMessage);
+                } else if (response.equals("IMAGE")) {
+                    int imageLength = dataInputStream.readInt();
+                    byte[] imageBytes = new byte[imageLength];
+                    dataInputStream.readFully(imageBytes);
+
+                    // Convert byte array to image and display
+                    InputStream byteArrayInputStream = new ByteArrayInputStream(imageBytes);
+                    Image image = new Image(byteArrayInputStream);
+                    imageView.setImage(image);  // Display image on the server side
+                    chatArea.appendText("Client sent an image.\n");
+                    broadcastImage(imageBytes);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void broadcastMessage(String type, String message) {
+        for (DataOutputStream dos : clientOutputStreams) {
+            try {
+                dos.writeUTF(type);
+                dos.writeUTF(message);
+                dos.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void broadcastImage(byte[] imageBytes) {
+        for (DataOutputStream dos : clientOutputStreams) {
+            try {
+                dos.writeUTF("IMAGE");
+                dos.writeInt(imageBytes.length);
+                dos.write(imageBytes);
+                dos.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public void btnSendOnAction(ActionEvent event) {
         try {
             String msg = txtInput.getText();
             chatArea.appendText("Me: " + msg + "\n");
 
-            // Send text message
-            dataOutputStream.writeUTF("TEXT");
-            dataOutputStream.writeUTF(msg);
-            dataOutputStream.flush();
+            // Send text message to all clients
+            broadcastMessage("TEXT", msg);
 
             txtInput.clear();
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -97,15 +132,7 @@ public class ServerFormController extends Application {
     }
 
     public void sendImage(byte[] imageBytes) {
-        try {
-            // Send image data
-            dataOutputStream.writeUTF("IMAGE");
-            dataOutputStream.writeInt(imageBytes.length);
-            dataOutputStream.write(imageBytes);
-            dataOutputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        broadcastImage(imageBytes);
     }
 
     @Override
